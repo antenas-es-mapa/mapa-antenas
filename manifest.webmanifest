@@ -1,0 +1,26 @@
+{
+  "name": "Mapa de Antenas – Espírito Santo",
+  "short_name": "Antenas ES",
+  "description": "ERBs do Espírito Santo: cobertura, triangulação, cruzar azimutes e predição de localização.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1923",
+  "theme_color": "#0d1e2d",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

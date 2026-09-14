@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Mapa de Antenas – Espírito Santo</title>
+<link rel="manifest" href="manifest.webmanifest"/>
+<meta name="theme-color" content="#0d1e2d"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Antenas ES"/>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;
+  background:#0f1923;color:#e0e0e0;font-family:'Segoe UI',Arial,sans-serif;padding:20px}
+form{width:100%;max-width:340px;background:#111d2a;border:1px solid #1e3a5f;border-radius:12px;
+  padding:28px 24px;box-shadow:0 8px 32px #000a;display:flex;flex-direction:column;gap:12px;align-items:stretch}
+img{width:72px;height:72px;border-radius:16px;align-self:center;margin-bottom:4px}
+h1{font-size:1.05rem;color:#58a6ff;text-align:center}
+p.sub{font-size:.76rem;color:#8b98a9;text-align:center;margin-bottom:6px}
+input[type=text],input[type=password]{width:100%;padding:11px 12px;background:#0d1e2d;border:1px solid #2d4060;
+  border-radius:8px;color:#e0e0e0;font-size:16px;outline:none}
+input:focus{border-color:#58a6ff}
+label.rem{display:flex;align-items:center;gap:8px;font-size:.78rem;color:#8b98a9;cursor:pointer}
+label.rem input{width:auto;accent-color:#1e6fcc}
+button{padding:12px;border:none;border-radius:8px;font-size:.92rem;font-weight:700;cursor:pointer;
+  background:linear-gradient(135deg,#1e6fcc,#1057a8);color:#fff;margin-top:4px}
+button:disabled{opacity:.55;cursor:wait}
+#msg{font-size:.78rem;text-align:center;min-height:1.2em;color:#8b98a9}
+#msg.err{color:#f85149}
+.hint{font-size:.66rem;color:#5a6a7a;text-align:center;line-height:1.4;margin-top:4px}
+</style>
+</head>
+<body>
+<form id="f" autocomplete="on">
+  <img src="icons/icon-192.png" alt=""/>
+  <h1>Mapa de Antenas – Espírito Santo</h1>
+  <p class="sub">Acesso restrito</p>
+  <input type="text" id="u" placeholder="Usuário" autocomplete="username" autocapitalize="none" spellcheck="false" required/>
+  <input type="password" id="p" placeholder="Senha" autocomplete="current-password" required/>
+  <label class="rem"><input type="checkbox" id="r"/> Lembrar neste aparelho</label>
+  <button id="b" type="submit">Entrar</button>
+  <div id="msg"></div>
+  <div class="hint">O mapa é descriptografado no seu próprio aparelho. Nada sai dele.</div>
+</form>
+<script>
+const SALT='ZhPtkXCdHLBx75Of171nTA==', IV='fsYOLBcSNyq+FG16', ITER=300000;
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const $=id=>document.getElementById(id);
+
+async function deriveKey(user,pass){
+  const mat=await crypto.subtle.importKey('raw',new TextEncoder().encode(user+'\n'+pass),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(SALT),iterations:ITER,hash:'SHA-256'},
+    mat,{name:'AES-GCM',length:256},true,['decrypt']);
+}
+
+async function openApp(key,remember){
+  const enc=await (await fetch('app.enc')).arrayBuffer();
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(IV)},key,enc); // lança erro se a chave estiver errada
+  if(remember){
+    const raw=new Uint8Array(await crypto.subtle.exportKey('raw',key));
+    localStorage.setItem('pwa_key',btoa(String.fromCharCode(...raw)));
+  }
+  const html=new TextDecoder().decode(plain);
+  document.open(); document.write(html); document.close();
+}
+
+// Entrada automática se o acesso foi lembrado neste aparelho
+(async()=>{
+  const k=localStorage.getItem('pwa_key');
+  if(!k) return;
+  try{
+    const key=await crypto.subtle.importKey('raw',b64(k),{name:'AES-GCM'},true,['decrypt']);
+    $('msg').textContent='Abrindo…';
+    await openApp(key,false);
+  }catch(e){ localStorage.removeItem('pwa_key'); $('msg').textContent=''; }
+})();
+
+$('f').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const b=$('b'), m=$('msg');
+  b.disabled=true; m.className=''; m.textContent='Verificando…';
+  try{
+    const key=await deriveKey($('u').value.trim(),$('p').value);
+    await openApp(key,$('r').checked);
+  }catch(err){
+    m.className='err'; m.textContent='Usuário ou senha incorretos.';
+    b.disabled=false; $('p').value=''; $('p').focus();
+  }
+});
+
+if('serviceWorker' in navigator && location.protocol!=='file:'){
+  addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
